@@ -5,6 +5,7 @@ using System.Threading;
 using Trees;
 using Validator;
 using System.Diagnostics;
+using System.Net.Mail;
 
 namespace Havel_s_hypothesis
 {
@@ -36,14 +37,26 @@ namespace Havel_s_hypothesis
         TreeList trees;
         IEnumerator<string> treeEtor;
 
+        private EmailLogger _emailLogger;
+        public EmailLogger emailLogger
+        {
+            get => _emailLogger;
+            set
+            {
+                _emailLogger = value;
+                _emailLogger.manager = this;
+            }
+        }
+
+
         int sleepInterval = 10 * 1000; // 10 sec
         Stopwatch sw;
 
         public void RunAllTest()
         {
             sw.Restart();
-
             InitThreads();
+            _emailLogger?.InitLog();
 
             do
             {
@@ -115,11 +128,11 @@ namespace Havel_s_hypothesis
             allThreadsHandlers[indexInArray].thread.Start();
         }
 
-        long treesDone = 40;
+        long treesDone = 0;
         long balTreesDone = 0;
 
         long AllTrees { get; }
-        const int lenghtOfLoadingBar = 70;
+        const int lenghtOfLoadingBar = 50;
 
         private void Log(Tree tree)
         {
@@ -128,32 +141,158 @@ namespace Havel_s_hypothesis
 
             Console.Clear();
 
-            Console.WriteLine("Statistics:");
-            Console.WriteLine($"TreesDone: {treesDone}, (balanced: {balTreesDone}), AllTrees: {AllTrees}, Elapsed: {sw.Elapsed}");
-            ShowLoadingBar();
-        }
+            Console.WriteLine(CreateConsoleMessage());
 
-        private void ShowLoadingBar()
-        {
-            double percentage = (lenghtOfLoadingBar * treesDone) / (double)AllTrees;
-            int doneBars = (int) ((lenghtOfLoadingBar * treesDone) / AllTrees);
-            doneBars = doneBars > lenghtOfLoadingBar ? lenghtOfLoadingBar : doneBars;
-
-            Console.Write("[");
-            Console.Write((new StringBuilder().Append('=', doneBars)).ToString());
-            Console.Write((new StringBuilder().Append(' ', lenghtOfLoadingBar - doneBars)).ToString());
-            Console.WriteLine($"] {percentage} %");
+            _emailLogger?.Log();
         }
 
         public void ShowOddTree()
         {
             Console.WriteLine("Odd tree found !!!!!!!!!");
             Console.WriteLine(oddTree);
+
+            _emailLogger?.OddTreeLog(oddTree);
         }
 
         public void ShowEnd()
         {
             Console.WriteLine("**DONE**");
+            _emailLogger?.SuccessfulRunLog();
         }
+
+
+        private string CreateConsoleMessage()
+        {
+            StringBuilder sb = new StringBuilder();
+
+            sb.AppendLine("Statistics:");
+            sb.AppendLine();
+
+            sb.AppendLine($"TreesDone: {treesDone:N0}, (balanced: {balTreesDone:N0}), AllTrees: {AllTrees:N0}");
+
+            //loading bar
+            double percentage = GetPercentage();
+
+            int doneBars = (int)((lenghtOfLoadingBar * treesDone) / AllTrees);
+            doneBars = doneBars > lenghtOfLoadingBar ? lenghtOfLoadingBar : doneBars;
+
+            sb.AppendLine($"Elapsed: {sw.Elapsed}, Estimated time to end: {(sw.Elapsed / (percentage / 100)) - sw.Elapsed}");
+
+            sb.AppendLine();
+            sb.Append("[");
+            sb.Append((new StringBuilder().Append('=', doneBars)).ToString());
+            sb.Append((new StringBuilder().Append(' ', lenghtOfLoadingBar - doneBars)).ToString());
+            sb.AppendLine($"] {percentage} %");
+
+            return sb.ToString();
+        }
+
+        private double GetPercentage()
+        {
+            double percentage = (lenghtOfLoadingBar * treesDone) / (double)AllTrees;
+            percentage = percentage > 100 ? 100 : percentage;
+            return percentage;
+        }
+
+        public class EmailLogger
+        {
+            MailMessage mail;
+            SmtpClient SmtpServer;
+            public ThreadManager manager;
+            private int intervalOfSendingMail_percentage;
+            private int nextMail_percentage;
+
+            public EmailLogger(int iterval_percentage)
+            {
+                intervalOfSendingMail_percentage = iterval_percentage;
+                nextMail_percentage = intervalOfSendingMail_percentage;
+
+                mail = new MailMessage();
+
+                SmtpServer = new SmtpClient("smtp.gmail.com");
+                mail.From = new MailAddress("c.sharp.myapps@gmail.com");
+                SmtpServer.Port = 587;
+                SmtpServer.Credentials = new System.Net.NetworkCredential("c.sharp.myapps@gmail.com", "Kakanec001");
+                SmtpServer.EnableSsl = true;
+            }
+
+
+            public void Log()
+            {
+                if (nextMail_percentage < manager.GetPercentage())
+                {
+                    nextMail_percentage += intervalOfSendingMail_percentage;
+                    SendProgressMail();
+                }
+            }
+
+            private void SendProgressMail()
+            {
+                mail.Subject = $"{Environment.MachineName} - progress: {manager.GetPercentage():N2} %";
+                mail.Body = manager.CreateConsoleMessage();
+
+                try
+                {
+                    SmtpServer.Send(mail);
+                    Console.WriteLine("Email sent");
+                }
+                catch
+                {
+                    Console.WriteLine("Unable to send email");
+                }
+            }
+
+            public void AddReceiver(string receiver) => mail.To.Add(receiver);
+
+            public void InitLog()
+            {
+                mail.Subject = $"{Environment.MachineName} - Start";
+                mail.Body = $"Program has started\nDimension: {manager.dimension}";
+
+                try
+                {
+                    SmtpServer.Send(mail);
+                    Console.WriteLine("Email sent");
+                }
+                catch
+                {
+                    Console.WriteLine("Unable to send email");
+                }
+            }
+
+            public void SuccessfulRunLog()
+            {
+                mail.Subject = $"{Environment.MachineName} - Start";
+                mail.Body = manager.CreateConsoleMessage();
+                mail.Body += $"\nHypothesis has been verified for dimension {manager.dimension}";
+
+                try
+                {
+                    SmtpServer.Send(mail);
+                    Console.WriteLine("Email sent");
+                }
+                catch
+                {
+                    Console.WriteLine("Unable to send email");
+                }
+            }
+
+            public void OddTreeLog(Tree tree)
+            {
+                mail.Subject = $"{Environment.MachineName} - Odd tree";
+                mail.Body = $"Odd tree has been found:\n{tree}";
+
+                try
+                {
+                    SmtpServer.Send(mail);
+                    Console.WriteLine("Email sent");
+                }
+                catch
+                {
+                    Console.WriteLine("Unable to send email");
+                }
+            }
+        }
+
     }
 }
