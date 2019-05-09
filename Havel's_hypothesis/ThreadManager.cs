@@ -190,7 +190,7 @@ namespace Havel_s_hypothesis
 
         private double GetPercentage()
         {
-            double percentage = (lenghtOfLoadingBar * treesDone) / (double)AllTrees;
+            double percentage = (treesDone * 100) / (double)AllTrees;
             percentage = percentage > 100 ? 100 : percentage;
             return percentage;
         }
