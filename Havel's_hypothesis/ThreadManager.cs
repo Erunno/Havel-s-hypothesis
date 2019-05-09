@@ -176,7 +176,8 @@ namespace Havel_s_hypothesis
             int doneBars = (int)((lenghtOfLoadingBar * treesDone) / AllTrees);
             doneBars = doneBars > lenghtOfLoadingBar ? lenghtOfLoadingBar : doneBars;
 
-            sb.AppendLine($"Elapsed: {sw.Elapsed}, Estimated time to end: {(sw.Elapsed / (percentage / 100)) - sw.Elapsed}");
+            var timeToEnd = (sw.Elapsed / (percentage / 100)) - sw.Elapsed;
+            sb.AppendLine($"Elapsed: {sw.Elapsed}, Estimated time to end: {timeToEnd} (DateTime: {DateTime.Now + timeToEnd})");
 
             sb.AppendLine();
             sb.Append("[");
