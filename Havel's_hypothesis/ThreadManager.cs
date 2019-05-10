@@ -263,7 +263,7 @@ namespace Havel_s_hypothesis
 
             public void SuccessfulRunLog()
             {
-                mail.Subject = $"{Environment.MachineName} - Start";
+                mail.Subject = $"{Environment.MachineName} - Success";
                 mail.Body = manager.CreateConsoleMessage();
                 mail.Body += $"\nHypothesis has been verified for dimension {manager.dimension}";
 
